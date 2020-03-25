@@ -151,10 +151,10 @@ func (h *HTTPServer) getContainersInfo() (map[string]map[string]string, error) {
 			nc = nc + 1
 		}
 
-		nc = 0
-		for _, v := range c.Ports {
-			info[fmt.Sprintf("hostPort:%d", nc)] = fmt.Sprintf("%s:%d:%d", v.IP, v.PublicPort, v.PrivatePort)
-			nc = nc + 1
+		for nc, v := range c.Ports {
+			info[fmt.Sprintf("hostIP:%d", nc)] = v.IP
+			info[fmt.Sprintf("publicPort:%d", nc)] = fmt.Sprintf("%d", v.PublicPort)
+			info[fmt.Sprintf("privatePort:%d", nc)] = fmt.Sprintf("%d", v.PrivatePort)
 		}
 
 		cinfo[c.ID] = info
