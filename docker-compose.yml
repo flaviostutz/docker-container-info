@@ -1,0 +1,22 @@
+version: '3.5'
+
+services:
+
+  docker-info:
+    build: .
+    image: flaviostutz/docker-info
+    environment:
+      - LOG_LEVEL=info
+      - CACHE_TIMEOUT=-1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 5000:5000
+
+  test1:
+    image: alpine
+    command: sleep 99999
+    restart: always
+    ports:
+      - 7000:5000
+
