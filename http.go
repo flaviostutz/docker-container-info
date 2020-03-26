@@ -54,9 +54,29 @@ func NewHTTPServer(cacheTimeout int) (*HTTPServer, error) {
 	}
 
 	logrus.Debugf("Registering API routes...")
-	router.GET("/info/_self", h.infoSelf())
+	router.GET("/_self", h.infoSelf())
+	router.GET("/info/:containerId", h.infoContainerID())
 
 	return h, nil
+}
+
+func (h *HTTPServer) infoContainerID() func(*gin.Context) {
+	return func(c *gin.Context) {
+
+		containerID := c.Param("containerId")
+		logrus.Debugf("Getting info for containerId=%s", containerID)
+
+		cinfo, err := h.getContainerInfo(containerID)
+		if err != nil {
+			logrus.Debugf("Couldn't find container info for id=%s. err=%s", containerID, err)
+			c.Header("Cache-Control", "no-cache")
+			c.JSON(http.StatusNotFound, gin.H{"message": fmt.Sprintf("Couldn't get info for container %s", containerID)})
+			return
+		}
+
+		c.Header("Cache-Control", "no-cache")
+		c.JSON(http.StatusOK, cinfo)
+	}
 }
 
 func (h *HTTPServer) infoSelf() func(*gin.Context) {
@@ -69,6 +89,7 @@ func (h *HTTPServer) infoSelf() func(*gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"message": fmt.Sprintf("Couldn't determine caller IP from request")})
 			return
 		}
+		logrus.Debugf("Request source IP=%s", ip)
 
 		cinfo, err := h.getContainerInfoFromIP(ip)
 		if err != nil {
@@ -112,10 +133,12 @@ func (h *HTTPServer) getContainerInfo(containerID string) (map[string]string, er
 	if err != nil {
 		return nil, fmt.Errorf("Containers info could not be loaded. err=%s", err)
 	}
-	cinfo, ok := cinfos[containerID]
+	tid := truncateString(containerID, 10)
+	cinfo, ok := cinfos[tid]
 	if !ok {
 		return nil, fmt.Errorf("Container info not found for %s", containerID)
 	}
+
 	return cinfo, nil
 }
 
@@ -133,7 +156,30 @@ func (h *HTTPServer) getContainersInfo() (map[string]map[string]string, error) {
 
 	cinfo := make(map[string]map[string]string)
 	for _, c := range containers {
+
 		info := make(map[string]string)
+
+		nodeID, ok := c.Labels["com.docker.swarm.node.id"]
+		if ok {
+			logrus.Debugf("Getting Swarm node label for public Ip")
+			snode, _, err := h.dockerClient.NodeInspectWithRaw(context.Background(), nodeID)
+			if err != nil {
+				logrus.Warnf("Couldn't get node inspect data. err=%s", err)
+			}
+			npublicIP, ok := snode.Spec.Labels["publicIp"]
+			if ok {
+				logrus.Debugf("Node public ip=%s", npublicIP)
+				info["nodePublicIp"] = npublicIP
+				info["publicIp"] = npublicIP
+			}
+		}
+
+		pip, ok := c.Labels["publicIp"]
+		if ok {
+			info["labelPublicIp"] = pip
+			info["publicIp"] = pip
+		}
+
 		info["id"] = c.ID
 		info["created"] = time.Unix(0, c.Created).Format(time.RFC3339)
 		info["image"] = c.Image
@@ -152,12 +198,13 @@ func (h *HTTPServer) getContainersInfo() (map[string]map[string]string, error) {
 		}
 
 		for nc, v := range c.Ports {
-			info[fmt.Sprintf("hostIp:%d", nc)] = v.IP
+			info[fmt.Sprintf("hostBindPort:%d", nc)] = v.IP
 			info[fmt.Sprintf("publicPort:%d", nc)] = fmt.Sprintf("%d", v.PublicPort)
 			info[fmt.Sprintf("privatePort:%d", nc)] = fmt.Sprintf("%d", v.PrivatePort)
 		}
 
-		cinfo[c.ID] = info
+		tid := truncateString(c.ID, 10)
+		cinfo[tid] = info
 	}
 
 	t := time.Now()
@@ -184,4 +231,15 @@ func (h *HTTPServer) cacheValid() bool {
 func (s *HTTPServer) Start() error {
 	logrus.Infof("Starting HTTP Server on port 3000")
 	return s.server.ListenAndServe()
+}
+
+func truncateString(str string, num int) string {
+	bnoden := str
+	if len(str) > num {
+		if num > 3 {
+			num -= 3
+		}
+		bnoden = str[0:num] + "..."
+	}
+	return bnoden
 }

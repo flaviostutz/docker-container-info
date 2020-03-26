@@ -4,19 +4,26 @@ services:
 
   docker-info:
     build: .
-    image: flaviostutz/docker-info
+    image: flaviostutz/docker-info2
     environment:
-      - LOG_LEVEL=info
+      - LOG_LEVEL=debug
       - CACHE_TIMEOUT=-1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
-      - 5000:5000
+      - target: 5000
+        published: 3384
+        protocol: tcp
+        mode: host
 
   test1:
     image: alpine
     command: sleep 99999
     restart: always
+    labels: 
+      - "publicIp=111.11.11.11"
     ports:
-      - 7000:5000
+      - target: 80
+        protocol: tcp
+        mode: host
 
