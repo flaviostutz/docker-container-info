@@ -18,7 +18,7 @@ services:
     command: sleep 99999
     restart: always
     labels: 
-      - "publicIp=111.11.11.11"
+      - "publicIp=222.33.44.55"
     ports:
       - target: 80
         protocol: tcp
