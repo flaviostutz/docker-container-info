@@ -43,6 +43,12 @@ services:
 
 * **/info/:containerId** - will get info about the container by its id. If in a Swarm Cluster, it will try to determine which node the container is running on and then will return the contents of the label "publicIp" applied to the node. You can use this label to indicate which public ip can reach the node.
 
+* **/info/:containerId/:attributeName** - gets a specific attribute from info in plain text. Useful for returning data to bash scripts. ex.: PUBLIC_PORT=$(curl http://docker-info:5000/info/sasdf0939023902/publicPort:0)
+
+## Labels
+
+* **publicIp** - if applied to container, will be returned as "publicIp" in info. ex.: publicIp=201.234.32.4
+
 ## Swarm Clusters
 
 * If you want /info to return a custom public ip to the container indicating from which public ip this container could be reached ("nodePublicIp", "labelPublicIp" and "publicIp" attributes)

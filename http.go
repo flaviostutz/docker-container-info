@@ -56,6 +56,7 @@ func NewHTTPServer(cacheTimeout int) (*HTTPServer, error) {
 	logrus.Debugf("Registering API routes...")
 	router.GET("/_self", h.infoSelf())
 	router.GET("/info/:containerId", h.infoContainerID())
+	router.GET("/info/:containerId/:attribute", h.infoContainerIDAttr())
 
 	return h, nil
 }
@@ -76,6 +77,35 @@ func (h *HTTPServer) infoContainerID() func(*gin.Context) {
 
 		c.Header("Cache-Control", "no-cache")
 		c.JSON(http.StatusOK, cinfo)
+	}
+}
+
+func (h *HTTPServer) infoContainerIDAttr() func(*gin.Context) {
+	return func(c *gin.Context) {
+
+		containerID := c.Param("containerId")
+		logrus.Debugf("Getting info for containerId=%s", containerID)
+
+		cinfo, err := h.getContainerInfo(containerID)
+		if err != nil {
+			logrus.Debugf("Couldn't find container info for id=%s. err=%s", containerID, err)
+			c.Header("Cache-Control", "no-cache")
+			c.JSON(http.StatusNotFound, gin.H{"message": fmt.Sprintf("Couldn't get info for container %s", containerID)})
+			return
+		}
+
+		attributeName := c.Param("attribute")
+		attrValue, ok := cinfo[attributeName]
+		if !ok {
+			logrus.Debugf("Couldn't find attribute %s for container %s", attributeName, containerID)
+			c.Header("Cache-Control", "no-cache")
+			c.JSON(http.StatusNotFound, gin.H{"message": fmt.Sprintf("Couldn't find attribute %s for container %s", attributeName, containerID)})
+			return
+		}
+
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Content-Type", "text/plain; charset=utf-8")
+		c.String(http.StatusOK, attrValue)
 	}
 }
 

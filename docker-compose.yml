@@ -11,10 +11,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
-      - target: 5000
-        published: 3384
-        protocol: tcp
-        mode: host
+      - 5000:5000
 
   test1:
     image: alpine
